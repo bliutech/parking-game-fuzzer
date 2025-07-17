@@ -12,7 +12,7 @@ use serde::Serialize;
 use serde::de::DeserializeOwned;
 use std::borrow::Cow;
 use std::marker::PhantomData;
-use std::num::NonZeroUsize;
+use std::num::{NonZero, NonZeroUsize};
 
 /// Randomly mutate the moves -- at any point with anything.
 ///
@@ -56,12 +56,28 @@ where
         )
         .unwrap();
 
-        // TODO(pt.0): insert a random move at a random position
+        // pt.0: insert a random move at a random position
         //  - first, pick a random index in the moves using `state.rand_mut().below(...)`
         //  - second, pick a random direction using `state.rand_mut().choose(...)`
         //  - finally, insert the (car, direction) tuple at the generated index
 
-        todo!("Indicate that the input was mutated")
+        let index = state
+            .rand_mut()
+            .below(NonZeroUsize::new(input.moves().len()).unwrap());
+        let direction = state
+            .rand_mut()
+            .choose([
+                parking_game::Direction::Up,
+                parking_game::Direction::Down,
+                parking_game::Direction::Left,
+                parking_game::Direction::Right,
+            ])
+            .unwrap();
+
+        input.moves_mut().insert(index, (car, direction));
+
+        // indicate that the input was mutated
+        Ok(MutationResult::Mutated)
     }
 
     fn post_exec(&mut self, _state: &mut S, _new_corpus_id: Option<CorpusId>) -> Result<(), Error> {

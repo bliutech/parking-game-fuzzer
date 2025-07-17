@@ -79,10 +79,21 @@ where
             .board_mut()
             .map_err(|e| Error::illegal_state(e.to_string()))?;
 
-        // TODO(pt.0): apply the moves in sequence
+        // pt.0: apply the moves in sequence
         //  - check the docs for how to apply moves to a board
         //    - see: https://docs.rs/parking-game/latest/parking_game/struct.Board.html
         //  - if an error occurs during a move, return `Ok(ExitKind::Crash)`.
+        for mv in moves {
+            let car = mv.0;
+            let direction = mv.1;
+            let res = board.shift_car(car, direction);
+            if res.is_err() {
+                // if the move fails, we crash the execution
+                // this is a signal to the fuzzer that something went wrong
+                return Ok(ExitKind::Crash);
+            }
+        }
+
         // TODO(pt.3): add a microsecond delay *after each move* to simulate cost:
         // sleep(Duration::from_micros(1));
 
