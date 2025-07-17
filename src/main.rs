@@ -10,8 +10,12 @@ pub mod stages;
 
 use crate::input::PGInput;
 use libafl::corpus::{Corpus, InMemoryCorpus};
+use libafl::{feedback_and, StdFuzzer};
+use libafl::feedbacks::{CrashFeedback, NewHashFeedback};
+use libafl::schedulers::QueueScheduler;
 use libafl::state::{HasSolutions, StdState};
 use libafl_bolts::rands::StdRand;
+use libafl_bolts::tuples::tuple_list;
 use parking_game::{BoardValue, Car, Orientation, Position, State};
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
@@ -130,12 +134,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("Attempting to solve:");
     println!("{}", init.board().unwrap());
 
-    // TODO(pt.1): create a ViewObserver with ViewObserver::<u8>::default()
+    // pt.1: create a ViewObserver with ViewObserver::<u8>::default()
     // this creates a view observer for a map which is indexed by u8s
+    let vo = observers::ViewObserver::<u8>::default();
 
-    // TODO(pt.1): create a FinalStateObserver with its default method for a map indexed by u8s
+    // pt.1: create a FinalStateObserver with its default method for a map indexed by u8s
+    let fso = observers::FinalStateObserver::<u8>::default();
 
-    // TODO(pt.1): create a feedback which will add an entry to the corpus if we see a new state
+    // pt.1: create a feedback which will add an entry to the corpus if we see a new state
     //  - this feedback should first check that the target has **not** "crashed"
     //  - iff so, we should check if this is a newly observed state by checking its hash
     //    - hint: look at https://docs.rs/libafl/latest/libafl/feedbacks/index.html
@@ -151,13 +157,16 @@ fn main() -> Result<(), Box<dyn Error>> {
     // TODO(pt.3): make the feedback compatible with snapshot fuzzing
     //  - the tail mutator makes re-executing the input redundant for prefix of moves
     //  - what feedback stashes the final state? how do we combine it with the existing feedbacks?
-    let mut feedback = ();
+    let mut feedback = feedback_and!(CrashFeedback::new(), NewHashFeedback::new(&vo));
 
-    // TODO(pt.1): create an objective which will determine if the puzzle is solved
+    // pt.1: create an objective which will determine if the puzzle is solved
     //  - this feedback should first check that the target has **not** "crashed"
     //  - then, we should check if the puzzle is solved
     //    - hint: this is mostly the same as setting up the feedback
-    let mut objective = ();
+    let mut objective = feedback_and!(
+        CrashFeedback::new(),
+        feedbacks::FinalStateFeedback::new(&fso)
+    );
 
     // sets up the state and storage for preserved inputs and the solutions
     let mut state = StdState::new(
@@ -168,18 +177,21 @@ fn main() -> Result<(), Box<dyn Error>> {
         &mut objective,
     )?;
 
-    // TODO(pt.1): create a PGRandMutator with &init
+    // pt.1: create a PGRandMutator with &init
     // TODO(pt.2): replace it with a PGTailMutator
+    let mut mutator = mutators::PGRandMutator::new(&init);
 
-    // TODO(pt.1): create an executor and pass your observers to it
+    // pt.1: create an executor and pass your observers to it
     //  - provide the view and final state observers
     //  - hint: in LibAFL, lists of differing types are created with the `tuple_list` macro
     //    - extra: what does this macro do?
     //    - extra: why do we format lists of data of different types like this?
+    let mut executor = executor::PGExecutor::new(init, tuple_list!(vo, fso));
 
-    // TODO(pt.1): create a fuzzer which uses a queue scheduler and the provided feedback/objective
+    // pt.1: create a fuzzer which uses a queue scheduler and the provided feedback/objective
     //  - see: https://docs.rs/libafl/latest/libafl/fuzzer/struct.StdFuzzer.html
     //  - extra: could we make a better scheduler for this?
+    let mut fuzzer = StdFuzzer::new(QueueScheduler::new(), &mut feedback, &mut objective);
 
     // TODO(pt.1): create a list of stages to be used by the fuzzer
     //  - for this fuzzer, we only need one stage: one that mutates and executes the input
@@ -190,12 +202,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     // TODO(pt.1): simple printing manager; you can use alternatives if you want to try them out!
     // let mut mgr = SimpleEventManager::printing();
 
-    // TODO(pt.1): evaluate an input with no moves
+    // pt.1: evaluate an input with no moves
     //  - for the mutator to work correctly, we need an existing input!
     //  - evaluating an input will add it to the corpus and all relevant metadata for us
     //  - see: https://docs.rs/libafl/latest/libafl/fuzzer/trait.Evaluator.html
     //    - what variable from earlier implements this?
     //  - hint: how do we make an input with no moves?
+    // let input = PGInput::new(vec![]);
+    // fuzzer.execute_input(&mut state, &mut executor, &mut mgr, &input)?;
 
     // TODO(pt.1): loop and fuzz until we have a solution
     //  - we don't need to fuzz forever; just until we find an input that gets the puzzle solved
