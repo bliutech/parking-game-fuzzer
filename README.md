@@ -75,7 +75,7 @@ First, you will improve your mutator to avoid "wasting" executions on invalid in
 With this implemented, a new optimization becomes available: resumed execution, or snapshot fuzzing.
 The final exercise deals with the optimization of snapshot fuzzing, and discusses real-world correspondences.
 
-### Exercise 0: Components
+### ✅ Exercise 0: Components
 
 Before completing this exercise, ensure that your environment is correctly configured by running `cargo test`.
 You should see that the following tests fail:
